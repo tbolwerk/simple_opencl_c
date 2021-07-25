@@ -9,14 +9,21 @@
 #include <CL/cl.h>
 #endif
 #include <string.h>
+
+#define ADD "addition"
+#define MULT "multiplication"
+#define MAX_SOURCE_SIZE (0x100000)
+
 //pick up device type from compiler command line or from
 //the default type
 #ifndef DEVICE
 #define DEVICE CL_DEVICE_TYPE_ALL
 #endif
 
-#define MAX_SOURCE_SIZE (0x100000)
-#define KERNEL_NAME "multiplication"
+// Configure these params, to your liking
+#define SHOW_OUTPUT false
+#define KERNEL_NAME ADD
+
 
 extern int output_device_info(cl_device_id);
 
@@ -42,18 +49,19 @@ char *err_code(int err)
 
 typedef const struct Kernel
 {
-    const char * name;
+    const char *name;
     char *source;
     size_t size;
 } Kernel;
 
-char** split(const char *source, char *delim)
+char **split(const char *source, char *delim)
 {
     char *token, *string, *tofree;
-    char ** result = malloc(sizeof(char) * 120);
+    char **result = malloc(sizeof(char) * 120);
     tofree = string = strdup(source);
 
-    while ((token = strsep(&string, delim)) != NULL){
+    while ((token = strsep(&string, delim)) != NULL)
+    {
         *result = malloc(sizeof(char) * 120);
         *result = token;
     }
@@ -65,10 +73,10 @@ char** split(const char *source, char *delim)
 // prefix_name.cl
 // must contain prefix underscore name and extension .cl
 
-const char* format (const char *kernelPath)
+const char *format(const char *kernelPath)
 {
-    char** unprefixed = split(kernelPath, "_");
-    const char * name = strsep(unprefixed,".");
+    char **unprefixed = split(kernelPath, "_");
+    const char *name = strsep(unprefixed, ".");
     return name;
 }
 
@@ -91,26 +99,24 @@ Kernel loadKernel(const char *kernelPath)
     return kernel;
 }
 
-
-cl_kernel createKernel(cl_program program,const char * kernel_name, cl_int errcode_ret){
+cl_kernel createKernel(cl_program program, const char *kernel_name, cl_int errcode_ret)
+{
     return clCreateKernel(program, KERNEL_NAME, &errcode_ret);
 }
-
 
 int main(int argc, char **argv)
 {
 
     uint size;
 
-    if (argc == 3)
+    if (argc == 2)
     {
         size = atoi(argv[1]);
     }
     else
     {
-        printf("Example input [kernel_name] [size] DEFAULT: \"multiplication\" 1\n");
-        size = 1;
-        #define KERNEL_NAME "multiplication"
+        fprintf(stderr, "needs 1 argument, but got: %d", argc);
+        exit(1);
     }
     // Declarations
     uint *A = (uint *)calloc(sizeof(uint), size);
@@ -123,10 +129,10 @@ int main(int argc, char **argv)
         B[i] = i + 1;
     }
     char prefix[100] = "kernel_";
-    char * withPrefix = malloc(sizeof(char) * 200);
-    withPrefix = strcat(prefix,KERNEL_NAME);
-    char extension[10]= ".cl";
-    char * kernelPath = malloc(sizeof(char) * 300);
+    char *withPrefix = malloc(sizeof(char) * 200);
+    withPrefix = strcat(prefix, KERNEL_NAME);
+    char extension[10] = ".cl";
+    char *kernelPath = malloc(sizeof(char) * 300);
     kernelPath = strcat(withPrefix, extension);
     printf("Loading kernel: %s\n", kernelPath);
     Kernel kernel = loadKernel(kernelPath);
@@ -205,7 +211,7 @@ int main(int argc, char **argv)
                 return EXIT_FAILURE;
             }
             // Create the compute kernel from the program
-            const char * kernel_name = strdup(kernel.name);
+            const char *kernel_name = strdup(kernel.name);
             ko_vadd = createKernel(program, kernel_name, err);
             checkError(err, "Creating kernel");
 
@@ -257,12 +263,16 @@ int main(int argc, char **argv)
                 printf("Error: Failed to read output array!\n%s\n", err_code(err));
                 exit(1);
             }
-            for (int i = 0; i < size; i++)
+            if (SHOW_OUTPUT)
             {
-                output_device_info(device_id);
-                printf("\t");
-                printf("%d+%d=%d\n", A[i], B[i], C[i]);
+                for (int i = 0; i < size; i++)
+                {
+                    output_device_info(device_id);
+                    printf("\t");
+                    printf("%d+%d=%d\n", A[i], B[i], C[i]);
+                }
             }
+
             printf("%f in seconds\t", time_spent);
             err = output_device_info(device_id);
             printf("\n");
