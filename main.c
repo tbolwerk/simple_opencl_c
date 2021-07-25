@@ -21,7 +21,6 @@
 #endif
 
 // Configure these params, to your liking
-#define SHOW_OUTPUT false
 #define KERNEL_NAME ADD
 
 extern int output_device_info(cl_device_id);
@@ -40,7 +39,7 @@ int output_device_info(cl_device_id id)
     free(value);
     return 0;
 }
-
+//a
 char *err_code(int err)
 {
     return "error";
@@ -48,7 +47,6 @@ char *err_code(int err)
 
 typedef const struct Kernel
 {
-    const char *name;
     char *source;
     size_t size;
 } Kernel;
@@ -93,8 +91,7 @@ Kernel loadKernel(const char *kernelPath)
     sourceString = (char *)malloc(MAX_SOURCE_SIZE);
     sourceSize = fread(sourceString, 1, MAX_SOURCE_SIZE, fp);
     fclose(fp);
-    const char *name = format(kernelPath);
-    Kernel kernel = {name, sourceString, sourceSize};
+    Kernel kernel = {sourceString, sourceSize};
     return kernel;
 }
 
@@ -106,7 +103,7 @@ cl_kernel createKernel(cl_program program, const char *kernel_name, cl_int errco
 int main(int argc, char **argv)
 {
 
-    uint size;
+    int size;
 
     if (argc == 2)
     {
@@ -118,25 +115,19 @@ int main(int argc, char **argv)
         exit(1);
     }
     // Declarations
-    uint *A = (uint *)calloc(sizeof(uint), size);
-    uint *B = (uint *)calloc(sizeof(uint), size);
-    uint *C = (uint *)calloc(sizeof(uint), size);
+    int *A = (int *)calloc(sizeof(int), size);
+    int *B = (int *)calloc(sizeof(int), size);
+    int *C = (int *)calloc(sizeof(int), size);
     // Initalizations
     for (int i = 0; i < size; i++)
     {
         A[i] = i + 1;
         B[i] = i + 1;
     }
-    char prefix[100] = "kernel_";
-    char *withPrefix = malloc(sizeof(char) * 200);
-    withPrefix = strcat(prefix, KERNEL_NAME);
-    char extension[10] = ".cl";
-    char *kernelPath = malloc(sizeof(char) * 300);
-    kernelPath = strcat(withPrefix, extension);
-    printf("Loading kernel: %s\n", kernelPath);
-    Kernel kernel = loadKernel(kernelPath);
+    
+    Kernel kernel = loadKernel("kernel_addition.cl");
 
-    printf("Succesfully loaded kernel: %s\n", kernel.name);
+    printf("Succesfully loaded kernel: %s\n", KERNEL_NAME);
     int err; // error code returned from OpenCL calls
 
     size_t global; // global domain size
@@ -152,7 +143,7 @@ int main(int argc, char **argv)
     cl_mem d_c; // device memory used for the output c vector
 
     // Set up platform and GPU device
-    cl_uint numPlatforms;
+    cl_int numPlatforms;
 
     // Find number of platforms
     err = clGetPlatformIDs(0, NULL, &numPlatforms);
@@ -165,7 +156,7 @@ int main(int argc, char **argv)
 
     // Get all platforms
     cl_platform_id Platform[numPlatforms];
-    cl_uint deviceCount;
+    cl_int deviceCount;
     cl_device_id *devices;
     err = clGetPlatformIDs(numPlatforms, Platform, NULL);
     checkError(err, "Getting platforms");
@@ -211,18 +202,18 @@ int main(int argc, char **argv)
                 return EXIT_FAILURE;
             }
             // Create the compute kernel from the program
-            const char *kernel_name = strdup(kernel.name);
-            ko_vadd = createKernel(program, kernel_name, err);
+           
+            ko_vadd = createKernel(program, "addition", err);
             checkError(err, "Creating kernel");
 
             // Create the input (a, b) and output (c) arrays in device memory
-            d_a = clCreateBuffer(context, CL_MEM_READ_ONLY, sizeof(uint) * size, NULL, &err);
+            d_a = clCreateBuffer(context, CL_MEM_READ_ONLY, sizeof(int) * size, NULL, &err);
             checkError(err, "Creating buffer d_a");
 
-            d_b = clCreateBuffer(context, CL_MEM_READ_ONLY, sizeof(uint) * size, NULL, &err);
+            d_b = clCreateBuffer(context, CL_MEM_READ_ONLY, sizeof(int) * size, NULL, &err);
             checkError(err, "Creating buffer d_b");
 
-            d_c = clCreateBuffer(context, CL_MEM_WRITE_ONLY, sizeof(uint) * size, NULL, &err);
+            d_c = clCreateBuffer(context, CL_MEM_WRITE_ONLY, sizeof(int) * size, NULL, &err);
             checkError(err, "Creating buffer d_c");
 
             // Write a and b vectors into compute device memory
@@ -257,36 +248,34 @@ int main(int argc, char **argv)
             double time_spent = (double)(end - begin) / CLOCKS_PER_SEC;
 
             // Read back the results from the compute device
-            err = clEnqueueReadBuffer(commands, d_c, CL_TRUE, 0, sizeof(uint) * size, C, 0, NULL, NULL);
+            err = clEnqueueReadBuffer(commands, d_c, CL_TRUE, 0, sizeof(int) * size, C, 0, NULL, NULL);
             if (err != CL_SUCCESS)
             {
                 printf("Error: Failed to read output array!\n%s\n", err_code(err));
                 exit(1);
             }
-            if (SHOW_OUTPUT)
-            {
                 for (int i = 0; i < size; i++)
                 {
                     output_device_info(device_id);
                     printf("\t");
                     printf("%d+%d=%d\n", A[i], B[i], C[i]);
                 }
-            }
 
             printf("%f in seconds\t", time_spent);
             err = output_device_info(device_id);
             printf("\n");
             // cleanup then shutdown
+            clReleaseContext(context);
             clReleaseMemObject(d_a);
             clReleaseMemObject(d_b);
             clReleaseMemObject(d_c);
             clReleaseProgram(program);
             clReleaseKernel(ko_vadd);
             clReleaseCommandQueue(commands);
-            clReleaseContext(context);
         }
     }
 
+           
     free(A);
     free(B);
     free(C);
