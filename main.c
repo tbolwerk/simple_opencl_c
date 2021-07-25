@@ -8,7 +8,7 @@
 #else
 #include <CL/cl.h>
 #endif
-
+#include <string.h>
 //pick up device type from compiler command line or from
 //the default type
 #ifndef DEVICE
@@ -16,6 +16,8 @@
 #endif
 
 #define MAX_SOURCE_SIZE (0x100000)
+#define KERNEL_NAME "multiplication"
+
 extern int output_device_info(cl_device_id);
 
 void checkError(int err, char *msg)
@@ -35,22 +37,80 @@ int output_device_info(cl_device_id id)
 
 char *err_code(int err)
 {
-    return "";
+    return "error";
 }
+
+typedef const struct Kernel
+{
+    const char * name;
+    char *source;
+    size_t size;
+} Kernel;
+
+char** split(const char *source, char *delim)
+{
+    char *token, *string, *tofree;
+    char ** result = malloc(sizeof(char) * 120);
+    tofree = string = strdup(source);
+
+    while ((token = strsep(&string, delim)) != NULL){
+        *result = malloc(sizeof(char) * 120);
+        *result = token;
+    }
+    free(tofree);
+    return result;
+}
+
+// Provide kernel path with specific naming scheme, such that
+// prefix_name.cl
+// must contain prefix underscore name and extension .cl
+
+const char* format (const char *kernelPath)
+{
+    char** unprefixed = split(kernelPath, "_");
+    const char * name = strsep(unprefixed,".");
+    return name;
+}
+
+Kernel loadKernel(const char *kernelPath)
+{
+    FILE *fp;
+    char *sourceString;
+    size_t sourceSize;
+    fp = fopen(kernelPath, "r");
+    if (!fp)
+    {
+        fprintf(stderr, "Failed to load kernel.cl\n");
+        exit(1);
+    }
+    sourceString = (char *)malloc(MAX_SOURCE_SIZE);
+    sourceSize = fread(sourceString, 1, MAX_SOURCE_SIZE, fp);
+    fclose(fp);
+    const char *name = format(kernelPath);
+    Kernel kernel = {name, sourceString, sourceSize};
+    return kernel;
+}
+
+
+cl_kernel createKernel(cl_program program,const char * kernel_name, cl_int errcode_ret){
+    return clCreateKernel(program, KERNEL_NAME, &errcode_ret);
+}
+
 
 int main(int argc, char **argv)
 {
 
     uint size;
 
-    if (argc == 2)
+    if (argc == 3)
     {
         size = atoi(argv[1]);
     }
     else
     {
-        fprintf(stderr, "needs 1 argument, but got: %d", argc);
-        exit(1);
+        printf("Example input [kernel_name] [size] DEFAULT: \"multiplication\" 1\n");
+        size = 1;
+        #define KERNEL_NAME "multiplication"
     }
     // Declarations
     uint *A = (uint *)calloc(sizeof(uint), size);
@@ -62,21 +122,15 @@ int main(int argc, char **argv)
         A[i] = i + 1;
         B[i] = i + 1;
     }
-
-    FILE *fp;
-    char *sourceString;
-    size_t sourceSize;
-
-    fp = fopen("kernel.cl", "r");
-    if (!fp)
-    {
-        fprintf(stderr, "Failed to load kernel.cl\n");
-        exit(1);
-    }
-    sourceString = (char *)malloc(MAX_SOURCE_SIZE);
-    sourceSize = fread(sourceString, 1, MAX_SOURCE_SIZE, fp);
-    fclose(fp);
-
+    char prefix[100] = "kernel_";
+    char * withPrefix = malloc(sizeof(char) * 200);
+    withPrefix = strcat(prefix,KERNEL_NAME);
+    char extension[10]= ".cl";
+    char * kernelPath = malloc(sizeof(char) * 300);
+    kernelPath = strcat(withPrefix, extension);
+    printf("Loading kernel: %s\n", kernelPath);
+    Kernel kernel = loadKernel(kernelPath);
+    printf("Succesfully loaded kernel: %s\n", kernel.name);
     int err; // error code returned from OpenCL calls
 
     size_t global; // global domain size
@@ -114,10 +168,10 @@ int main(int argc, char **argv)
     for (int i = 0; i < numPlatforms; i++)
     {
         // get all devices
-        clGetDeviceIDs(Platform[i], CL_DEVICE_TYPE_ALL, 0, NULL, &deviceCount);
+        clGetDeviceIDs(Platform[i], DEVICE, 0, NULL, &deviceCount);
         devices = (cl_device_id *)malloc(sizeof(cl_device_id) * deviceCount);
-        clGetDeviceIDs(Platform[i], CL_DEVICE_TYPE_ALL, deviceCount, devices, NULL);
-        
+        clGetDeviceIDs(Platform[i], DEVICE, deviceCount, devices, NULL);
+
         for (int j = 0; j < deviceCount; j++)
         {
             device_id = devices[j];
@@ -135,7 +189,7 @@ int main(int argc, char **argv)
             checkError(err, "Creating command queue");
 
             // Create the compute program from the source buffer
-            program = clCreateProgramWithSource(context, 1, (const char **)&sourceString, NULL, &err);
+            program = clCreateProgramWithSource(context, 1, (const char **)&kernel.source, NULL, &err);
             checkError(err, "Creating program");
 
             // Build the program
@@ -150,9 +204,9 @@ int main(int argc, char **argv)
                 printf("%s\n", buffer);
                 return EXIT_FAILURE;
             }
-
             // Create the compute kernel from the program
-            ko_vadd = clCreateKernel(program, "addition", &err);
+            const char * kernel_name = strdup(kernel.name);
+            ko_vadd = createKernel(program, kernel_name, err);
             checkError(err, "Creating kernel");
 
             // Create the input (a, b) and output (c) arrays in device memory
@@ -195,7 +249,7 @@ int main(int argc, char **argv)
             // Stop timer
             clock_t end = clock();
             double time_spent = (double)(end - begin) / CLOCKS_PER_SEC;
-            
+
             // Read back the results from the compute device
             err = clEnqueueReadBuffer(commands, d_c, CL_TRUE, 0, sizeof(uint) * size, C, 0, NULL, NULL);
             if (err != CL_SUCCESS)
@@ -209,7 +263,7 @@ int main(int argc, char **argv)
                 printf("\t");
                 printf("%d+%d=%d\n", A[i], B[i], C[i]);
             }
-            printf("%f in seconds\t",time_spent);
+            printf("%f in seconds\t", time_spent);
             err = output_device_info(device_id);
             printf("\n");
         }
