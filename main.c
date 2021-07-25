@@ -1,16 +1,3 @@
-//------------------------------------------------------------------------------
-//
-// Name:       vadd.c
-//
-// Purpose:    Elementwise addition of two vectors (c = a + b)
-//
-// HISTORY:    Written by Tim Mattson, December 2009
-//             Updated by Tom Deakin and Simon McIntosh-Smith, October 2012
-//             Updated by Tom Deakin, July 2013
-//             Updated by Tom Deakin, October 2014
-//
-//------------------------------------------------------------------------------
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
@@ -30,17 +17,6 @@
 
 #define MAX_SOURCE_SIZE (0x100000)
 extern int output_device_info(cl_device_id);
-
-//------------------------------------------------------------------------------
-//
-// kernel:  vadd
-//
-// Purpose: Compute the elementwise sum c = a+b
-//
-// input: a and b float vectors of length size
-//
-// output: c float vector of length size holding the sum a + b
-//
 
 void checkError(int err, char *msg)
 {
