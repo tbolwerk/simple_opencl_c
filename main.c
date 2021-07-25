@@ -24,7 +24,6 @@
 #define SHOW_OUTPUT false
 #define KERNEL_NAME ADD
 
-
 extern int output_device_info(cl_device_id);
 
 void checkError(int err, char *msg)
@@ -136,6 +135,7 @@ int main(int argc, char **argv)
     kernelPath = strcat(withPrefix, extension);
     printf("Loading kernel: %s\n", kernelPath);
     Kernel kernel = loadKernel(kernelPath);
+
     printf("Succesfully loaded kernel: %s\n", kernel.name);
     int err; // error code returned from OpenCL calls
 
@@ -276,17 +276,16 @@ int main(int argc, char **argv)
             printf("%f in seconds\t", time_spent);
             err = output_device_info(device_id);
             printf("\n");
+            // cleanup then shutdown
+            clReleaseMemObject(d_a);
+            clReleaseMemObject(d_b);
+            clReleaseMemObject(d_c);
+            clReleaseProgram(program);
+            clReleaseKernel(ko_vadd);
+            clReleaseCommandQueue(commands);
+            clReleaseContext(context);
         }
     }
-
-    // cleanup then shutdown
-    clReleaseMemObject(d_a);
-    clReleaseMemObject(d_b);
-    clReleaseMemObject(d_c);
-    clReleaseProgram(program);
-    clReleaseKernel(ko_vadd);
-    clReleaseCommandQueue(commands);
-    clReleaseContext(context);
 
     free(A);
     free(B);
