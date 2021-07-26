@@ -10,8 +10,6 @@
 #endif
 #include <string.h>
 
-#define ADD "addition"
-#define MULT "multiplication"
 #define MAX_SOURCE_SIZE (0x100000)
 
 //pick up device type from compiler command line or from
@@ -19,9 +17,6 @@
 #ifndef DEVICE
 #define DEVICE CL_DEVICE_TYPE_ALL
 #endif
-
-// Configure these params, to your liking
-#define KERNEL_NAME ADD
 
 extern int output_device_info(cl_device_id);
 
@@ -51,32 +46,6 @@ typedef const struct Kernel
     size_t size;
 } Kernel;
 
-char **split(const char *source, char *delim)
-{
-    char *token, *string, *tofree;
-    char **result = malloc(sizeof(char) * 120);
-    tofree = string = strdup(source);
-
-    while ((token = strsep(&string, delim)) != NULL)
-    {
-        *result = malloc(sizeof(char) * 120);
-        *result = token;
-    }
-    free(tofree);
-    return result;
-}
-
-// Provide kernel path with specific naming scheme, such that
-// prefix_name.cl
-// must contain prefix underscore name and extension .cl
-
-const char *format(const char *kernelPath)
-{
-    char **unprefixed = split(kernelPath, "_");
-    const char *name = strsep(unprefixed, ".");
-    return name;
-}
-
 Kernel loadKernel(const char *kernelPath)
 {
     FILE *fp;
@@ -95,39 +64,33 @@ Kernel loadKernel(const char *kernelPath)
     return kernel;
 }
 
-cl_kernel createKernel(cl_program program, const char *kernel_name, cl_int errcode_ret)
-{
-    return clCreateKernel(program, KERNEL_NAME, &errcode_ret);
-}
-
 int main(int argc, char **argv)
 {
 
-    int size;
-
-    if (argc == 2)
+    if ((argc - 1) % 2 != 0)
     {
-        size = atoi(argv[1]);
-    }
-    else
-    {
-        fprintf(stderr, "needs 1 argument, but got: %d", argc);
+        fprintf(stderr, "Number of input params needs to be even");
         exit(1);
     }
+
+    int size = (argc)/2;
+
     // Declarations
     int *A = (int *)calloc(sizeof(int), size);
     int *B = (int *)calloc(sizeof(int), size);
     int *C = (int *)calloc(sizeof(int), size);
     // Initalizations
-    for (int i = 0; i < size; i++)
+    for (int i = 1; i < size; i++)
     {
-        A[i] = i + 1;
-        B[i] = i + 1;
+        int a = atoi(argv[i]);
+        A[i] = a;
+
+        int b = atoi(argv[i + size]);
+        B[i] = b;
     }
-    
+
     Kernel kernel = loadKernel("kernel_addition.cl");
 
-    printf("Succesfully loaded kernel: %s\n", KERNEL_NAME);
     int err; // error code returned from OpenCL calls
 
     size_t global; // global domain size
@@ -202,8 +165,8 @@ int main(int argc, char **argv)
                 return EXIT_FAILURE;
             }
             // Create the compute kernel from the program
-           
-            ko_vadd = createKernel(program, "addition", err);
+
+            ko_vadd = clCreateKernel(program, "addition", &err);
             checkError(err, "Creating kernel");
 
             // Create the input (a, b) and output (c) arrays in device memory
@@ -254,12 +217,12 @@ int main(int argc, char **argv)
                 printf("Error: Failed to read output array!\n%s\n", err_code(err));
                 exit(1);
             }
-                for (int i = 0; i < size; i++)
-                {
-                    output_device_info(device_id);
-                    printf("\t");
-                    printf("%d+%d=%d\n", A[i], B[i], C[i]);
-                }
+            for (int i = 0; i < size; i++)
+            {
+                output_device_info(device_id);
+                printf("\t");
+                printf("%d+%d=%d\n", A[i], B[i], C[i]);
+            }
 
             printf("%f in seconds\t", time_spent);
             err = output_device_info(device_id);
@@ -275,7 +238,6 @@ int main(int argc, char **argv)
         }
     }
 
-           
     free(A);
     free(B);
     free(C);
