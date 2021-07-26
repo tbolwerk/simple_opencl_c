@@ -65,9 +65,9 @@ Kernel loadKernel(const char *kernelPath)
 }
 
 
-int executeWithOpenCL(int size, int * A, int * B, int * C){
+int executeWithOpenCL(int size, int * A, int * B, int * C, const char * kernelPath, const char * kernelName){
 
-    Kernel kernel = loadKernel("kernel_addition.cl");
+    Kernel kernel = loadKernel(kernelPath);
 
     int err; // error code returned from OpenCL calls
 
@@ -144,7 +144,7 @@ int executeWithOpenCL(int size, int * A, int * B, int * C){
             }
             // Create the compute kernel from the program
 
-            ko_vadd = clCreateKernel(program, "addition", &err);
+            ko_vadd = clCreateKernel(program, kernelName, &err);
             checkError(err, "Creating kernel");
 
             // Create the input (a, b) and output (c) arrays in device memory
@@ -245,7 +245,7 @@ int main(int argc, char **argv)
         B[i] = b;
     }
 
-    int err = executeWithOpenCL(size, A, B, C);
+    int err = executeWithOpenCL(size, A, B, C,"kernel_addition.cl","addition");
 
     if(err != 0){
         fprintf(stderr, "Something went wrong while executing openCL");
