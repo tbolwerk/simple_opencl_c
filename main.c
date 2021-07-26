@@ -73,19 +73,19 @@ int main(int argc, char **argv)
         exit(1);
     }
 
-    int size = (argc)/2;
+    int size = (argc) / 2;
 
     // Declarations
     int *A = (int *)calloc(sizeof(int), size);
     int *B = (int *)calloc(sizeof(int), size);
     int *C = (int *)calloc(sizeof(int), size);
     // Initalizations
-    for (int i = 1; i < size; i++)
+    for (int i = 0; i < size; i++)
     {
-        int a = atoi(argv[i]);
+        int a = atoi(argv[i + 1]);
         A[i] = a;
 
-        int b = atoi(argv[i + size]);
+        int b = atoi(argv[i + size + 1]);
         B[i] = b;
     }
 
