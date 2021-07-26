@@ -64,30 +64,8 @@ Kernel loadKernel(const char *kernelPath)
     return kernel;
 }
 
-int main(int argc, char **argv)
-{
 
-    if ((argc - 1) % 2 != 0)
-    {
-        fprintf(stderr, "Number of input params needs to be even");
-        exit(1);
-    }
-
-    int size = (argc) / 2;
-
-    // Declarations
-    int *A = (int *)calloc(sizeof(int), size);
-    int *B = (int *)calloc(sizeof(int), size);
-    int *C = (int *)calloc(sizeof(int), size);
-    // Initalizations
-    for (int i = 0; i < size; i++)
-    {
-        int a = atoi(argv[i + 1]);
-        A[i] = a;
-
-        int b = atoi(argv[i + size + 1]);
-        B[i] = b;
-    }
+int executeWithOpenCL(int size, int * A, int * B, int * C){
 
     Kernel kernel = loadKernel("kernel_addition.cl");
 
@@ -236,6 +214,42 @@ int main(int argc, char **argv)
             clReleaseKernel(ko_vadd);
             clReleaseCommandQueue(commands);
         }
+    }
+    return err;
+}
+
+
+int main(int argc, char **argv)
+{
+
+    if ((argc - 1) % 2 != 0)
+    {
+        fprintf(stderr, "Number of input params needs to be even");
+        exit(1);
+    }
+
+    int size = (argc) / 2;
+
+    // Declarations
+    int *A = (int *)calloc(sizeof(int), size);
+    int *B = (int *)calloc(sizeof(int), size);
+    int *C = (int *)calloc(sizeof(int), size);
+
+    // Initalization from even input
+    for (int i = 0; i < size; i++)
+    {
+        int a = atoi(argv[i + 1]);
+        A[i] = a;
+
+        int b = atoi(argv[i + size + 1]);
+        B[i] = b;
+    }
+
+    int err = executeWithOpenCL(size, A, B, C);
+
+    if(err != 0){
+        fprintf(stderr, "Something went wrong while executing openCL");
+        exit(1);
     }
 
     free(A);
