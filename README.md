@@ -6,12 +6,33 @@ Install OpenCL for you specific OS
 
 
 
-ubuntu install 
-> sudo apt update
-> sudo apt install make
-> sudo apt install ocl-icd-opencl-dev
+## Ubuntu install 
 
-Mac os
+```
+sudo apt update
+sudo apt install make
+sudo apt install ocl-icd-opencl-dev
+```
+
+## Mac os
+
+```
 brew install make
-Reference:
-https://developer.apple.com/library/archive/documentation/Performance/Conceptual/OpenCL_MacProgGuide/Introduction/Introduction.html
+```
+
+Reference: [OpenCL documentation Apple](https://developer.apple.com/library/archive/documentation/Performance/Conceptual/OpenCL_MacProgGuide/Introduction/Introduction.html)
+
+
+
+# How to run
+
+```
+make
+./main $(cat input.txt)
+```
+
+# How to clean
+
+```
+make clean
+```

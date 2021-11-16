@@ -34,7 +34,30 @@ int output_device_info(cl_device_id id)
     free(value);
     return 0;
 }
-//a
+
+struct timespec tp_begin;
+struct timespec tp_end;
+
+void start_clock(void)
+{
+    if (clock_gettime(CLOCK_MONOTONIC, &tp_begin) < 0)
+    {
+        fprintf(stderr, "ERROR: could not get current monotonic");
+        exit(1);
+    }
+}
+
+void end_clock(void)
+{
+    if (clock_gettime(CLOCK_MONOTONIC, &tp_end) < 0)
+    {
+        fprintf(stderr, "ERROR: could not get current monotonic");
+        exit(1);
+    }
+    double elapsed = (tp_end.tv_sec - tp_begin.tv_sec + tp_end.tv_nsec - tp_begin.tv_nsec) * 1e-9;
+    printf("time elapsed %lfs", elapsed);
+}
+
 char *err_code(int err)
 {
     return "error";
@@ -64,8 +87,8 @@ Kernel loadKernel(const char *kernelPath)
     return kernel;
 }
 
-
-int executeWithOpenCL(int size, int * A, int * B, int * C, const char * kernelPath, const char * kernelName){
+int executeWithOpenCL(int size, int *A, int *B, int *C, const char *kernelPath, const char *kernelName)
+{
 
     Kernel kernel = loadKernel(kernelPath);
 
@@ -110,7 +133,7 @@ int executeWithOpenCL(int size, int * A, int * B, int * C, const char * kernelPa
         devices = (cl_device_id *)malloc(sizeof(cl_device_id) * deviceCount);
         clGetDeviceIDs(Platform[i], DEVICE, deviceCount, devices, NULL);
 
-        for (int j = 0; j < deviceCount; j++)
+        for (int j = 2; j < deviceCount; j++)
         {
             device_id = devices[j];
             if (device_id == NULL)
@@ -171,12 +194,12 @@ int executeWithOpenCL(int size, int * A, int * B, int * C, const char * kernelPa
             err |= clSetKernelArg(ko_vadd, 3, sizeof(unsigned int), &size);
             checkError(err, "Setting kernel arguments");
 
-            // Start timer
-            clock_t begin = clock();
-
             // Execute the kernel over the entire range of our 1d input data set
             // letting the OpenCL runtime choose the work-group size
             global = size;
+
+            start_clock();
+
             err = clEnqueueNDRangeKernel(commands, ko_vadd, 1, NULL, &global, NULL, 0, NULL, NULL);
             checkError(err, "Enqueueing kernel");
 
@@ -185,8 +208,9 @@ int executeWithOpenCL(int size, int * A, int * B, int * C, const char * kernelPa
             checkError(err, "Waiting for kernel to finish");
 
             // Stop timer
-            clock_t end = clock();
-            double time_spent = (double)(end - begin) / CLOCKS_PER_SEC;
+            end_clock();
+            printf(" ");
+            err = output_device_info(device_id);
 
             // Read back the results from the compute device
             err = clEnqueueReadBuffer(commands, d_c, CL_TRUE, 0, sizeof(int) * size, C, 0, NULL, NULL);
@@ -195,15 +219,15 @@ int executeWithOpenCL(int size, int * A, int * B, int * C, const char * kernelPa
                 printf("Error: Failed to read output array!\n%s\n", err_code(err));
                 exit(1);
             }
-            for (int i = 0; i < size; i++)
-            {
-                output_device_info(device_id);
-                printf("\t");
-                printf("%d+%d=%d\n", A[i], B[i], C[i]);
-            }
+            // for (int i = 0; i < size; i++)
+            // {
+            //     output_device_info(device_id);
+            //     printf("\t");
+            //     printf("%s of %d %d=%d\n", kernelName ,A[i], B[i], C[i]);
+            // }
 
-            printf("%f in seconds\t", time_spent);
-            err = output_device_info(device_id);
+            // printf("%f in seconds\t", time_spent);
+            printf(" %s", kernelName);
             printf("\n");
             // cleanup then shutdown
             clReleaseContext(context);
@@ -217,7 +241,6 @@ int executeWithOpenCL(int size, int * A, int * B, int * C, const char * kernelPa
     }
     return err;
 }
-
 
 int main(int argc, char **argv)
 {
@@ -244,10 +267,14 @@ int main(int argc, char **argv)
         int b = atoi(argv[i + size + 1]);
         B[i] = b;
     }
-
-    int err = executeWithOpenCL(size, A, B, C,"kernel_addition.cl","addition");
-
-    if(err != 0){
+    int err;
+    while (true)
+    {
+        err = executeWithOpenCL(size, A, B, C, "kernel_addition.cl", "addition");
+        err = executeWithOpenCL(size, A, B, C, "kernel_multiplication.cl", "multiplication");
+    }
+    if (err != 0)
+    {
         fprintf(stderr, "Something went wrong while executing openCL");
         exit(1);
     }
